@@ -1,0 +1,222 @@
+// DiziPay — Prisma schema (PostgreSQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================================
+// USERS & AUTH
+// ==========================================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      UserRole @default(MERCHANT)
+
+  merchant Merchant?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MERCHANT
+  CLIENT
+}
+
+// ==========================================
+// MERCHANTS
+// ==========================================
+
+model Merchant {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  name  String
+  type  MerchantType
+  phone String @unique
+  ninea String? @unique
+
+  pispiAccountId   String? @unique
+  pispiAlias       String? @unique
+  pispiInstitution String?
+
+  status MerchantStatus @default(ACTIVE)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  qrCodes      QRCode[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("merchants")
+}
+
+enum MerchantType {
+  PHARMACY
+  SCHOOL
+  RETAIL
+  RESTAURANT
+  OTHER
+}
+
+enum MerchantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+// ==========================================
+// TRANSACTIONS
+// ==========================================
+
+model Transaction {
+  id         String @id @default(uuid())
+  merchantId String
+
+  amount      Int
+  currency    String  @default("XOF")
+  description String?
+
+  clientPhone String?
+  clientName  String?
+  clientAlias String?
+
+  pispiPaymentId      String? @unique
+  pispiTransactionRef String? @unique
+  pispiDebitAccount   String?
+  pispiCreditAccount  String?
+
+  status        TransactionStatus @default(PENDING)
+  paymentMethod PaymentMethod?
+
+  qrCodeId String?
+  qrCode   QRCode? @relation(fields: [qrCodeId], references: [id])
+
+  metadata Json?
+
+  initiatedAt DateTime?
+  confirmedAt DateTime?
+  failedAt    DateTime?
+  expiresAt   DateTime?
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([merchantId])
+  @@index([status])
+  @@index([pispiPaymentId])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  WAVE
+  ORANGE_MONEY
+  FREE_MONEY
+  WIZALL
+  EMONEY
+  BANK_ACCOUNT
+  PISPI
+  UNKNOWN
+}
+
+// ==========================================
+// QR CODES
+// ==========================================
+
+model QRCode {
+  id         String @id @default(uuid())
+  merchantId String
+
+  type    QRCodeType
+  content String     @unique
+  format  String     @default("EMVCo")
+
+  detectedType String?
+  parsedData   Json?
+
+  merchant     Merchant      @relation(fields: [merchantId], references: [id])
+  transactions Transaction[]
+
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([merchantId])
+  @@map("qr_codes")
+}
+
+enum QRCodeType {
+  DYNAMIC
+  STATIC
+}
+
+// ==========================================
+// PISPI LOGS (Audit Trail)
+// ==========================================
+
+model PISPILog {
+  id String @id @default(uuid())
+
+  endpoint        String
+  method          String
+  requestPayload  Json?
+  responsePayload Json?
+  statusCode      Int?
+
+  transactionId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([transactionId])
+  @@index([createdAt])
+  @@map("pispi_logs")
+}
+
+// ==========================================
+// RECONCILIATION
+// ==========================================
+
+model DailyReconciliation {
+  id String @id @default(uuid())
+
+  date       DateTime @db.Date
+  merchantId String?
+
+  totalTransactions Int
+  totalAmount       Int
+
+  successCount  Int
+  successAmount Int
+
+  failedCount  Int
+  pendingCount Int
+
+  status String @default("OK")
+  gap    Int    @default(0)
+
+  reconciledAt DateTime @default(now())
+
+  @@unique([date, merchantId])
+  @@map("daily_reconciliations")
+}
