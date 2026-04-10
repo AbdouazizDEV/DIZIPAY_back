@@ -1,8 +1,22 @@
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
+/**
+ * URL publique de l’API pour Swagger « Try it out » (sans slash final).
+ * Render définit `RENDER_EXTERNAL_URL` ; sinon définir `SWAGGER_PUBLIC_URL` manuellement.
+ */
+function swaggerPublicBaseUrl(): string | undefined {
+  const raw =
+    process.env.SWAGGER_PUBLIC_URL?.trim() ||
+    process.env.RENDER_EXTERNAL_URL?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  return raw.replace(/\/$/, '');
+}
+
 export function setupSwagger(app: INestApplication, port: number) {
-  const config = new DocumentBuilder()
+  const builder = new DocumentBuilder()
     .setTitle('DiziPay API')
     .setDescription(
       [
@@ -41,7 +55,6 @@ export function setupSwagger(app: INestApplication, port: number) {
       },
       'JWT-auth',
     )
-    .addServer(`http://localhost:${port}`, 'Machine locale')
     .addTag(
       'Auth',
       'Connexion et obtention du jeton JWT (aucune autorisation préalable)',
@@ -53,8 +66,15 @@ export function setupSwagger(app: INestApplication, port: number) {
     .addTag(
       'Webhooks',
       'Notifications PI-SPI — **sans JWT** ; vérification HMAC optionnelle en dev',
-    )
-    .build();
+    );
+
+  const publicBase = swaggerPublicBaseUrl();
+  if (publicBase) {
+    builder.addServer(publicBase, 'Déploiement (URL publique)');
+  }
+  builder.addServer(`http://localhost:${port}`, 'Machine locale');
+
+  const config = builder.build();
 
   const document = SwaggerModule.createDocument(app, config, {
     operationIdFactory: (_controllerKey: string, methodKey: string) => methodKey,
