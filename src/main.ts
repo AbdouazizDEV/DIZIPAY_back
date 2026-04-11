@@ -16,9 +16,15 @@ async function bootstrap() {
 
   app.use(helmet());
   app.use(compression());
+
+  const corsOrigins = process.env.CORS_ORIGIN?.split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') ?? true,
+    origin: corsOrigins?.length ? corsOrigins : true,
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
   });
 
   const port = parseInt(process.env.PORT ?? '3000', 10);
