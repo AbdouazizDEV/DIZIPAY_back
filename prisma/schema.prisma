@@ -1,11 +1,11 @@
-// DiziPay — Prisma schema (PostgreSQL)
+// DiziPay — Prisma schema (MongoDB)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
 }
 
 // ==========================================
@@ -13,7 +13,7 @@ datasource db {
 // ==========================================
 
 model User {
-  id        String   @id @default(uuid())
+  id        String   @id @default(uuid()) @map("_id")
   email     String   @unique
   password  String
   role      UserRole @default(MERCHANT)
@@ -37,7 +37,7 @@ enum UserRole {
 // ==========================================
 
 model Merchant {
-  id     String @id @default(uuid())
+  id     String @id @default(uuid()) @map("_id")
   userId String @unique
 
   name  String
@@ -51,7 +51,7 @@ model Merchant {
 
   status MerchantStatus @default(ACTIVE)
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id])
   transactions Transaction[]
   qrCodes      QRCode[]
 
@@ -80,7 +80,7 @@ enum MerchantStatus {
 // ==========================================
 
 model Transaction {
-  id         String @id @default(uuid())
+  id         String @id @default(uuid()) @map("_id")
   merchantId String
 
   amount      Int
@@ -116,7 +116,6 @@ model Transaction {
 
   @@index([merchantId])
   @@index([status])
-  @@index([pispiPaymentId])
   @@index([createdAt])
   @@map("transactions")
 }
@@ -146,7 +145,7 @@ enum PaymentMethod {
 // ==========================================
 
 model QRCode {
-  id         String @id @default(uuid())
+  id         String @id @default(uuid()) @map("_id")
   merchantId String
 
   type    QRCodeType
@@ -176,7 +175,7 @@ enum QRCodeType {
 // ==========================================
 
 model PISPILog {
-  id String @id @default(uuid())
+  id String @id @default(uuid()) @map("_id")
 
   endpoint        String
   method          String
@@ -198,9 +197,9 @@ model PISPILog {
 // ==========================================
 
 model DailyReconciliation {
-  id String @id @default(uuid())
+  id String @id @default(uuid()) @map("_id")
 
-  date       DateTime @db.Date
+  date       DateTime
   merchantId String?
 
   totalTransactions Int

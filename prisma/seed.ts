@@ -1,5 +1,4 @@
 import * as bcrypt from 'bcrypt';
-import { PrismaPg } from '@prisma/adapter-pg';
 import {
   PrismaClient,
   MerchantStatus,
@@ -7,13 +6,11 @@ import {
   UserRole,
 } from '@prisma/client';
 
-const url = process.env.DATABASE_URL;
-if (!url) {
+if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL manquant pour le seed');
 }
 
-const adapter = new PrismaPg(url);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function main() {
   const passwordHash = await bcrypt.hash('DizipayDev1!', 12);
