@@ -1,16 +1,12 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: dizipay-postgres
+  mongo:
+    image: mongo:7
+    container_name: dizipay-mongo
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: dizipay
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: dizipay_db
     ports:
-      - '5432:5432'
+      - '27017:27017'
     volumes:
-      - dizipay_pgdata:/var/lib/postgresql/data
+      - dizipay_mongo:/data/db
 
   redis:
     image: redis:7-alpine
@@ -23,5 +19,5 @@ services:
       - dizipay_redis:/data
 
 volumes:
-  dizipay_pgdata:
+  dizipay_mongo:
   dizipay_redis:

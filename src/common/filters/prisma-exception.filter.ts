@@ -42,7 +42,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
       } else if (exception.code === 'P2022') {
         message = isDev
           ? exception.message
-          : 'Schéma PostgreSQL désynchronisé — exécutez `npx prisma db push` ou `migrate dev` avec un utilisateur ayant les droits DDL.';
+          : 'Schéma Prisma désynchronisé — exécutez `npx prisma db push` (MongoDB).';
       } else if (isDev) {
         message = exception.message;
       }
@@ -73,7 +73,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         ? {
             detail: exception.message,
             hint:
-              'Vérifiez DATABASE_URL, `npx prisma migrate dev` ou `db push`, et les droits PostgreSQL (voir scripts/grant-databeez-public.sql).',
+              'Vérifiez DATABASE_URL (MongoDB), `npx prisma db push` et le réseau (IP Atlas / Render).',
           }
         : {}),
     });
