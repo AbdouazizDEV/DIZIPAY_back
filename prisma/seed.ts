@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import * as bcrypt from 'bcrypt';
 import {
   PrismaClient,
