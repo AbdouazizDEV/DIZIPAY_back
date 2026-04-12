@@ -17,11 +17,27 @@ async function bootstrap() {
   app.use(helmet());
   app.use(compression());
 
-  const corsOrigins = process.env.CORS_ORIGIN?.split(',')
+  const corsOrigins = (process.env.CORS_ORIGIN?.split(',') ?? [])
     .map((o) => o.trim())
     .filter(Boolean);
+
+  // Liste stricte : autoriser aussi les clients sans en-tête Origin (app native, curl).
+  const corsOriginOption =
+    corsOrigins.length > 0
+      ? (
+          origin: string | undefined,
+          callback: (err: Error | null, allow?: boolean) => void,
+        ) => {
+          if (!origin) {
+            callback(null, true);
+            return;
+          }
+          callback(null, corsOrigins.includes(origin));
+        }
+      : true;
+
   app.enableCors({
-    origin: corsOrigins?.length ? corsOrigins : true,
+    origin: corsOriginOption,
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
