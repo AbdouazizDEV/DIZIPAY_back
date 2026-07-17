@@ -22,6 +22,6 @@ import { QRGeneratorService } from './qr/qr-generator.service';
     QRDecoderService,
     QRGeneratorService,
   ],
-  exports: [PaymentsService, PISPIService],
+  exports: [PaymentsService, PISPIService, QRDecoderService, QRGeneratorService],
 })
 export class PaymentsModule {}

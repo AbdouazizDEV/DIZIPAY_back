@@ -1,6 +1,3 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
 -- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'MERCHANT', 'CLIENT');
 
@@ -109,7 +106,7 @@ CREATE TABLE "pispi_logs" (
 -- CreateTable
 CREATE TABLE "daily_reconciliations" (
     "id" TEXT NOT NULL,
-    "date" DATE NOT NULL,
+    "date" TIMESTAMP(3) NOT NULL,
     "merchantId" TEXT,
     "totalTransactions" INTEGER NOT NULL,
     "totalAmount" INTEGER NOT NULL,
@@ -155,9 +152,6 @@ CREATE INDEX "transactions_merchantId_idx" ON "transactions"("merchantId");
 CREATE INDEX "transactions_status_idx" ON "transactions"("status");
 
 -- CreateIndex
-CREATE INDEX "transactions_pispiPaymentId_idx" ON "transactions"("pispiPaymentId");
-
--- CreateIndex
 CREATE INDEX "transactions_createdAt_idx" ON "transactions"("createdAt");
 
 -- CreateIndex
@@ -176,7 +170,7 @@ CREATE INDEX "pispi_logs_createdAt_idx" ON "pispi_logs"("createdAt");
 CREATE UNIQUE INDEX "daily_reconciliations_date_merchantId_key" ON "daily_reconciliations"("date", "merchantId");
 
 -- AddForeignKey
-ALTER TABLE "merchants" ADD CONSTRAINT "merchants_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "merchants" ADD CONSTRAINT "merchants_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "transactions" ADD CONSTRAINT "transactions_qrCodeId_fkey" FOREIGN KEY ("qrCodeId") REFERENCES "qr_codes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -186,3 +180,4 @@ ALTER TABLE "transactions" ADD CONSTRAINT "transactions_merchantId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "qr_codes" ADD CONSTRAINT "qr_codes_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "merchants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+

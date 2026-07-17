@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { TransactionStatus } from '@prisma/client';
+import { PaymentLinkStatus, TransactionStatus } from '@prisma/client';
 import { PrismaService } from '@/database/prisma.service';
 import { mapPispiStatutToTransactionStatus } from '@/modules/payments/pispi/pispi-status.mapper';
 import { PispiWebhookDto } from './dto/pispi-webhook.dto';
@@ -102,6 +102,19 @@ export class WebhooksService {
     this.logger.log(
       `Webhook PI-SPI appliqué: tx=${updated.id} → ${updated.status}`,
     );
+
+    if (updated.status === TransactionStatus.SUCCESS) {
+      await this.prisma.paymentLink.updateMany({
+        where: {
+          transactionId: updated.id,
+          status: { not: PaymentLinkStatus.PAID },
+        },
+        data: {
+          status: PaymentLinkStatus.PAID,
+          paidAt: now,
+        },
+      });
+    }
 
     return {
       ok: true,
