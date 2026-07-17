@@ -47,9 +47,13 @@ async function bootstrap() {
     ]),
   ];
 
-  // Si aucune origine → tout autoriser (app native / outils).
+  // Patterns dynamiques (Vercel preview : *.vercel.app).
+  const wildcardPatterns = [
+    /^https:\/\/dizipay-web[a-z0-9-]*\.vercel\.app$/,
+  ];
+
   const corsOriginOption =
-    allowedOrigins.length > 0
+    allowedOrigins.length > 0 || wildcardPatterns.length > 0
       ? (
           origin: string | undefined,
           callback: (err: Error | null, allow?: boolean) => void,
@@ -59,7 +63,10 @@ async function bootstrap() {
             return;
           }
           const normalized = origin.replace(/\/$/, '');
-          callback(null, allowedOrigins.includes(normalized));
+          const allowed =
+            allowedOrigins.includes(normalized) ||
+            wildcardPatterns.some((re) => re.test(normalized));
+          callback(null, allowed);
         }
       : true;
 
