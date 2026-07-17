@@ -71,11 +71,10 @@ export class PaymentsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Scanner le QR du client (ou alias) — le marchand initie le débit PI-SPI',
+      'Scanner le QR du client (ou alias) — le marchand initie le débit',
     description:
-      'Parcours alternatif : le client montre son QR (ou code) ; le marchand scanne. ' +
-      'Résolution alias + initiation paiement (API Business : alias/resoudre, paiements/initier). ' +
-      'Le client valide dans son app PSP selon les règles du wallet.',
+      'Parcours alternatif : le client montre son QR ; le marchand scanne. ' +
+      'Champ optionnel `paymentProvider` (PSPI | WAVE). Wave → 503 explicite (MVP).',
   })
   @ApiBody({ type: ScanQRDto })
   @ApiOkResponse({

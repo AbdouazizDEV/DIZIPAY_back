@@ -15,6 +15,10 @@ import { AuthModule } from '@/modules/auth/auth.module';
 import { PaymentsModule } from '@/modules/payments/payments.module';
 import { PaymentLinksModule } from '@/modules/payment-links/payment-links.module';
 import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
+import { PaymentsInfrastructureModule } from '@/infrastructure/payments/payments-infrastructure.module';
+import { PaymentsApplicationModule } from '@/application/payments/payments-application.module';
+import { PaymentsPresentationModule } from '@/presentation/payments/payments-presentation.module';
+import { DomainPaymentExceptionFilter } from '@/presentation/payments/filters/domain-payment-exception.filter';
 
 @Module({
   imports: [
@@ -35,11 +39,15 @@ import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
     PaymentsModule,
     PaymentLinksModule,
     WebhooksModule,
+    PaymentsInfrastructureModule,
+    PaymentsApplicationModule,
+    PaymentsPresentationModule,
   ],
   providers: [
     { provide: APP_PIPE, useValue: validationPipe },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_FILTER, useClass: PrismaExceptionFilter },
+    { provide: APP_FILTER, useClass: DomainPaymentExceptionFilter },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })

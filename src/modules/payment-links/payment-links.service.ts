@@ -13,8 +13,10 @@ import {
 } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
 import type { QrPayloadInput } from '@pi-spi/qrcode';
+import { InitiateIncomingPaymentUseCase } from '@/application/payments/use-cases/initiate-incoming-payment.use-case';
+import { PaymentProviderType } from '@/domain/payments/enums/payment-provider-type.enum';
+import { DomainPaymentStatus } from '@/domain/payments/enums/payment-status.enum';
 import { PrismaService } from '@/database/prisma.service';
-import { PISPIService } from '@/modules/payments/pispi/pispi.service';
 import { QRData, QRDecoderService } from '@/modules/payments/qr/qr-decoder.service';
 import { QRGeneratorService } from '@/modules/payments/qr/qr-generator.service';
 import { CreatePaymentLinkDto } from './dto/create-payment-link.dto';
@@ -30,9 +32,9 @@ export class PaymentLinksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-    private readonly pispiService: PISPIService,
     private readonly qrDecoder: QRDecoderService,
     private readonly qrGenerator: QRGeneratorService,
+    private readonly initiateIncomingPayment: InitiateIncomingPaymentUseCase,
   ) {}
 
   async create(merchantId: string, dto: CreatePaymentLinkDto) {
@@ -279,43 +281,47 @@ export class PaymentLinksService {
       );
     }
 
+    const providerType =
+      dto.paymentProvider ?? PaymentProviderType.PSPI;
+    const payer = this.toPayerIdentifier(dto);
+    const paymentMethod =
+      providerType === PaymentProviderType.WAVE
+        ? PaymentMethod.WAVE
+        : PaymentMethod.PISPI;
+
     try {
-      const aliasInfo = await this.resolveClientDebit(dto);
       await this.prisma.transaction.update({
         where: { id: transaction.id },
         data: {
-          clientName: aliasInfo.accountName,
           clientPhone: dto.clientPhone,
-          clientAlias: dto.clientAlias ?? aliasInfo.accountId,
-          pispiDebitAccount: aliasInfo.accountId,
+          clientAlias: dto.clientAlias ?? payer.aliasValue,
           pispiCreditAccount: merchant.pispiAccountId,
           status: TransactionStatus.PROCESSING,
           initiatedAt: new Date(),
-          paymentMethod: PaymentMethod.PISPI,
+          paymentMethod,
         },
       });
 
-      const paymentResult = await this.pispiService.initiatePayment({
-        debitAccount: aliasInfo.accountId,
-        creditAccount: merchant.pispiAccountId,
-        amount: link.amount,
-        currency: link.currency,
-        reference: transaction.id,
-        description: link.description ?? 'Paiement via lien DiziPay',
+      const paymentResult = await this.initiateIncomingPayment.execute({
+        providerType,
+        command: {
+          payer,
+          creditAccount: merchant.pispiAccountId,
+          amount: link.amount,
+          currency: link.currency,
+          reference: transaction.id,
+          description: link.description ?? 'Paiement via lien DiziPay',
+        },
+        creditAccountLabel: merchant.name,
       });
 
-      const txStatus =
-        paymentResult.status === 'SUCCESS'
-          ? TransactionStatus.SUCCESS
-          : paymentResult.status === 'FAILED'
-            ? TransactionStatus.FAILED
-            : TransactionStatus.PROCESSING;
+      const txStatus = this.mapDomainStatus(paymentResult.status);
 
       const updated = await this.prisma.transaction.update({
         where: { id: transaction.id },
         data: {
-          pispiPaymentId: paymentResult.id,
-          pispiTransactionRef: paymentResult.pispiReference,
+          pispiPaymentId: paymentResult.providerPaymentId,
+          pispiTransactionRef: paymentResult.providerReference,
           status: txStatus,
           confirmedAt:
             txStatus === TransactionStatus.SUCCESS ? new Date() : null,
@@ -331,12 +337,12 @@ export class PaymentLinksService {
         token: link.token,
         transactionId: updated.id,
         status: updated.status,
+        paymentProvider: providerType,
         paymentLinkStatus:
           txStatus === TransactionStatus.SUCCESS
             ? PaymentLinkStatus.PAID
             : PaymentLinkStatus.ACTIVE,
         amount: updated.amount,
-        clientName: aliasInfo.accountName,
         pispiPaymentId: updated.pispiPaymentId,
       };
     } catch (error) {
@@ -433,40 +439,51 @@ export class PaymentLinksService {
     return link;
   }
 
-  private async resolveClientDebit(dto: PayPaymentLinkDto) {
+  /** Construit l'identifiant payeur sans appeler le provider (DIP / use case). */
+  private toPayerIdentifier(dto: PayPaymentLinkDto): {
+    aliasType: string;
+    aliasValue: string;
+  } {
     if (dto.qrCode) {
       const qrData = this.qrDecoder.decodeQR(dto.qrCode);
-      return this.resolveFromQrData(qrData, dto.qrCode);
+      return this.payerFromQrData(qrData, dto.qrCode);
     }
     if (dto.clientAlias?.trim()) {
-      return this.pispiService.resolveAlias({
+      return {
         aliasType: 'PAYMENT_ADDRESS',
         aliasValue: dto.clientAlias.trim(),
-      });
+      };
     }
-    return this.pispiService.resolveAlias({
+    return {
       aliasType: 'PHONE',
       aliasValue: dto.clientPhone!.trim(),
-    });
+    };
   }
 
-  private async resolveFromQrData(qrData: QRData, rawQr: string) {
+  private payerFromQrData(
+    qrData: QRData,
+    rawQr: string,
+  ): { aliasType: string; aliasValue: string } {
     if (qrData.type === 'PISPI' && qrData.alias) {
-      return this.pispiService.resolveAlias({
-        aliasType: 'QR_CODE',
-        aliasValue: qrData.alias,
-      });
+      return { aliasType: 'QR_CODE', aliasValue: qrData.alias };
     }
     if (qrData.phone) {
-      return this.pispiService.resolveAlias({
-        aliasType: 'PHONE',
-        aliasValue: qrData.phone,
-      });
+      return { aliasType: 'PHONE', aliasValue: qrData.phone };
     }
-    return this.pispiService.resolveAlias({
-      aliasType: 'QR_CODE',
-      aliasValue: rawQr,
-    });
+    return { aliasType: 'QR_CODE', aliasValue: rawQr };
+  }
+
+  private mapDomainStatus(status: DomainPaymentStatus): TransactionStatus {
+    if (status === DomainPaymentStatus.SUCCESS) {
+      return TransactionStatus.SUCCESS;
+    }
+    if (status === DomainPaymentStatus.FAILED) {
+      return TransactionStatus.FAILED;
+    }
+    if (status === DomainPaymentStatus.CANCELLED) {
+      return TransactionStatus.CANCELLED;
+    }
+    return TransactionStatus.PROCESSING;
   }
 
   private generateToken(): string {

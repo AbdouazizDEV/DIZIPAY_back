@@ -29,12 +29,14 @@ export function setupSwagger(app: INestApplication, port: number) {
         '',
         '### Parcours de test recommandé',
         '1. `POST /auth/login` (compte seed : `merchant@dizipay.local`).',
-        '2. `POST /payment-links` — créer un lien partageable (montant + description).',
-        '3. `GET /payment-links/{token}` — page publique client (sans JWT).',
-        '4. Client paie via QR affiché **ou** `POST /payment-links/{token}/pay`.',
-        '5. `GET /payment-links/{token}/status` — polling.',
-        '6. Alternatif QR : `POST /payments/merchant-presented-qr` / `scan-and-pay`.',
-        '7. `POST /webhooks/pispi` — simulation notification.',
+        '2. `GET /payment-providers` — modes de paiement disponibles (PSPI actif, Wave bientôt).',
+        '3. `POST /payment-links` — créer un lien partageable (montant + description).',
+        '4. `GET /payment-links/{token}` — page publique client (sans JWT).',
+        '5. Client paie via QR **ou** `POST /payment-links/{token}/pay` avec `paymentProvider`.',
+        '6. `GET /payment-links/{token}/status` — polling.',
+        '7. Virement : `POST /payouts` (MOBILE_MONEY ou BANK_ACCOUNT).',
+        '8. Alternatif QR : `POST /payments/merchant-presented-qr` / `scan-and-pay`.',
+        '9. `POST /webhooks/pispi` — simulation notification.',
         '',
         '### Documentation externe',
         '- [Guides PI-SPI](https://developer.pispi.bceao.int/guides)',
@@ -64,6 +66,14 @@ export function setupSwagger(app: INestApplication, port: number) {
     .addTag(
       'Payment Links',
       'Liens de paiement partageables — création JWT marchand ; consultation / paiement **public**',
+    )
+    .addTag(
+      'Payment Providers',
+      'Choix du mode de paiement (PSPI / Wave) — liste publique + initiation JWT',
+    )
+    .addTag(
+      'Payouts',
+      'Virements sortants (mobile money / IBAN) — JWT marchand',
     )
     .addTag(
       'Payments',

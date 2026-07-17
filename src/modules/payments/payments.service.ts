@@ -10,6 +10,9 @@ import {
   TransactionStatus,
 } from '@prisma/client';
 import type { QrPayloadInput } from '@pi-spi/qrcode';
+import { InitiateIncomingPaymentUseCase } from '@/application/payments/use-cases/initiate-incoming-payment.use-case';
+import { PaymentProviderType } from '@/domain/payments/enums/payment-provider-type.enum';
+import { DomainPaymentStatus } from '@/domain/payments/enums/payment-status.enum';
 import { PrismaService } from '@/database/prisma.service';
 import { PISPIService, PispiPaymentStatus } from './pispi/pispi.service';
 import { QRData, QRDecoderService } from './qr/qr-decoder.service';
@@ -26,6 +29,7 @@ export class PaymentsService {
     private readonly pispiService: PISPIService,
     private readonly qrDecoder: QRDecoderService,
     private readonly qrGenerator: QRGeneratorService,
+    private readonly initiateIncomingPayment: InitiateIncomingPaymentUseCase,
   ) {}
 
   /**
@@ -175,7 +179,12 @@ export class PaymentsService {
     }
 
     const qrData = this.qrDecoder.decodeQR(dto.qrCode);
-    const paymentMethod = this.mapQrTypeToPaymentMethod(qrData);
+    const providerType =
+      dto.paymentProvider ?? PaymentProviderType.PSPI;
+    const paymentMethod =
+      providerType === PaymentProviderType.WAVE
+        ? PaymentMethod.WAVE
+        : this.mapQrTypeToPaymentMethod(qrData);
 
     const transaction = await this.prisma.transaction.create({
       data: {
@@ -189,40 +198,40 @@ export class PaymentsService {
       },
     });
 
-    try {
-      const aliasInfo = await this.resolveClientAccount(qrData, dto.qrCode);
-      const clientAccountId = aliasInfo.accountId;
-      const clientName = aliasInfo.accountName;
+    const payer = this.payerFromQrData(qrData, dto.qrCode);
 
+    try {
       await this.prisma.transaction.update({
         where: { id: transaction.id },
         data: {
-          clientName,
           clientPhone: qrData.phone,
           clientAlias: qrData.alias,
-          pispiDebitAccount: clientAccountId,
           pispiCreditAccount: merchant.pispiAccountId,
           status: TransactionStatus.PROCESSING,
           initiatedAt: new Date(),
         },
       });
 
-      const paymentResult = await this.pispiService.initiatePayment({
-        debitAccount: clientAccountId,
-        creditAccount: merchant.pispiAccountId,
-        amount: dto.amount,
-        currency: 'XOF',
-        reference: transaction.id,
-        description: dto.description,
+      const paymentResult = await this.initiateIncomingPayment.execute({
+        providerType,
+        command: {
+          payer,
+          creditAccount: merchant.pispiAccountId,
+          amount: dto.amount,
+          currency: 'XOF',
+          reference: transaction.id,
+          description: dto.description,
+        },
+        creditAccountLabel: merchant.name,
       });
 
-      const txStatus = this.mapPispiToTransactionStatus(paymentResult.status);
+      const txStatus = this.mapDomainToTransactionStatus(paymentResult.status);
 
       const updated = await this.prisma.transaction.update({
         where: { id: transaction.id },
         data: {
-          pispiPaymentId: paymentResult.id,
-          pispiTransactionRef: paymentResult.pispiReference,
+          pispiPaymentId: paymentResult.providerPaymentId,
+          pispiTransactionRef: paymentResult.providerReference,
           status: txStatus,
           confirmedAt:
             txStatus === TransactionStatus.SUCCESS ? new Date() : null,
@@ -233,7 +242,7 @@ export class PaymentsService {
         transactionId: updated.id,
         status: updated.status,
         amount: updated.amount,
-        clientName,
+        paymentProvider: providerType,
         pispiPaymentId: updated.pispiPaymentId,
       };
     } catch (error) {
@@ -249,25 +258,32 @@ export class PaymentsService {
     }
   }
 
-  private async resolveClientAccount(qrData: QRData, rawQr: string) {
+  private payerFromQrData(
+    qrData: QRData,
+    rawQr: string,
+  ): { aliasType: string; aliasValue: string } {
     if (qrData.type === 'PISPI' && qrData.alias) {
-      return this.pispiService.resolveAlias({
-        aliasType: 'QR_CODE',
-        aliasValue: qrData.alias,
-      });
+      return { aliasType: 'QR_CODE', aliasValue: qrData.alias };
     }
-
     if (qrData.phone) {
-      return this.pispiService.resolveAlias({
-        aliasType: 'PHONE',
-        aliasValue: qrData.phone,
-      });
+      return { aliasType: 'PHONE', aliasValue: qrData.phone };
     }
+    return { aliasType: 'QR_CODE', aliasValue: rawQr };
+  }
 
-    return this.pispiService.resolveAlias({
-      aliasType: 'QR_CODE',
-      aliasValue: rawQr,
-    });
+  private mapDomainToTransactionStatus(
+    status: DomainPaymentStatus,
+  ): TransactionStatus {
+    if (status === DomainPaymentStatus.SUCCESS) {
+      return TransactionStatus.SUCCESS;
+    }
+    if (status === DomainPaymentStatus.FAILED) {
+      return TransactionStatus.FAILED;
+    }
+    if (status === DomainPaymentStatus.CANCELLED) {
+      return TransactionStatus.CANCELLED;
+    }
+    return TransactionStatus.PROCESSING;
   }
 
   private mapQrTypeToPaymentMethod(data: QRData): PaymentMethod {

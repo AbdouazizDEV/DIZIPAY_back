@@ -105,7 +105,8 @@ export class PaymentLinksController {
   @ApiOperation({
     summary: 'Payer via le lien (wallet client)',
     description:
-      'Sans JWT. Alternative au scan du QR marchand : le client fournit son QR wallet, téléphone ou alias ; initiation PI-SPI.',
+      'Sans JWT. Le client choisit `paymentProvider` (PSPI | WAVE) puis fournit QR / téléphone / alias. ' +
+      'Wave renvoie 503 « non disponible » (MVP).',
   })
   @ApiParam({ name: 'token' })
   @ApiBody({ type: PayPaymentLinkDto })
