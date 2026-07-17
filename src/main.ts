@@ -14,16 +14,29 @@ async function bootstrap() {
   const apiPrefix = process.env.API_PREFIX ?? 'api/v1';
   app.setGlobalPrefix(apiPrefix);
 
-  app.use(helmet());
+  // CORP same-origin (défaut Helmet) bloque la lecture des réponses par le front Vite (autre origine).
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
   app.use(compression());
 
   const corsOrigins = (process.env.CORS_ORIGIN?.split(',') ?? [])
     .map((o) => o.trim())
     .filter(Boolean);
 
-  // Liste stricte : autoriser aussi les clients sans en-tête Origin (app native, curl).
-  const corsOriginOption =
+  // Dev : autoriser Vite par défaut si CORS_ORIGIN non défini.
+  const defaultDevOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+  const allowedOrigins =
     corsOrigins.length > 0
+      ? corsOrigins
+      : process.env.NODE_ENV === 'production'
+        ? []
+        : defaultDevOrigins;
+
+  const corsOriginOption =
+    allowedOrigins.length > 0
       ? (
           origin: string | undefined,
           callback: (err: Error | null, allow?: boolean) => void,
@@ -32,7 +45,7 @@ async function bootstrap() {
             callback(null, true);
             return;
           }
-          callback(null, corsOrigins.includes(origin));
+          callback(null, allowedOrigins.includes(origin));
         }
       : true;
 
@@ -40,7 +53,12 @@ async function bootstrap() {
     origin: corsOriginOption,
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'X-Requested-With',
+    ],
   });
 
   const port = parseInt(process.env.PORT ?? '3000', 10);

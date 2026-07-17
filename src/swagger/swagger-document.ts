@@ -29,10 +29,12 @@ export function setupSwagger(app: INestApplication, port: number) {
         '',
         '### Parcours de test recommandé',
         '1. `POST /auth/login` (compte seed : `merchant@dizipay.local`).',
-        '2. `POST /payments/merchant-presented-qr` — payload EMV pour QR marchand.',
-        '3. `POST /payments/scan-and-pay` — marchand scanne le QR client.',
-        '4. `GET /payments/status/{transactionId}` — suivi.',
-        '5. `POST /webhooks/pispi` — simulation notification (avec signature si secret configuré).',
+        '2. `POST /payment-links` — créer un lien partageable (montant + description).',
+        '3. `GET /payment-links/{token}` — page publique client (sans JWT).',
+        '4. Client paie via QR affiché **ou** `POST /payment-links/{token}/pay`.',
+        '5. `GET /payment-links/{token}/status` — polling.',
+        '6. Alternatif QR : `POST /payments/merchant-presented-qr` / `scan-and-pay`.',
+        '7. `POST /webhooks/pispi` — simulation notification.',
         '',
         '### Documentation externe',
         '- [Guides PI-SPI](https://developer.pispi.bceao.int/guides)',
@@ -58,6 +60,10 @@ export function setupSwagger(app: INestApplication, port: number) {
     .addTag(
       'Auth',
       'Connexion et obtention du jeton JWT (aucune autorisation préalable)',
+    )
+    .addTag(
+      'Payment Links',
+      'Liens de paiement partageables — création JWT marchand ; consultation / paiement **public**',
     )
     .addTag(
       'Payments',

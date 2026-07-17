@@ -1,12 +1,13 @@
-// DiziPay — Prisma schema (MongoDB)
+// DiziPay — Prisma schema (PostgreSQL / Neon)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mongodb"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ==========================================
@@ -14,7 +15,7 @@ datasource db {
 // ==========================================
 
 model User {
-  id        String   @id @default(uuid()) @map("_id")
+  id        String   @id @default(uuid())
   email     String   @unique
   password  String
   role      UserRole @default(MERCHANT)
@@ -38,12 +39,12 @@ enum UserRole {
 // ==========================================
 
 model Merchant {
-  id     String @id @default(uuid()) @map("_id")
+  id     String @id @default(uuid())
   userId String @unique
 
   name  String
   type  MerchantType
-  phone String @unique
+  phone String  @unique
   ninea String? @unique
 
   pispiAccountId   String? @unique
@@ -52,9 +53,10 @@ model Merchant {
 
   status MerchantStatus @default(ACTIVE)
 
-  user         User          @relation(fields: [userId], references: [id])
-  transactions Transaction[]
-  qrCodes      QRCode[]
+  user          User          @relation(fields: [userId], references: [id])
+  transactions  Transaction[]
+  qrCodes       QRCode[]
+  paymentLinks  PaymentLink[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -81,7 +83,7 @@ enum MerchantStatus {
 // ==========================================
 
 model Transaction {
-  id         String @id @default(uuid()) @map("_id")
+  id         String @id @default(uuid())
   merchantId String
 
   amount      Int
@@ -110,7 +112,8 @@ model Transaction {
   failedAt    DateTime?
   expiresAt   DateTime?
 
-  merchant Merchant @relation(fields: [merchantId], references: [id])
+  merchant    Merchant     @relation(fields: [merchantId], references: [id])
+  paymentLink PaymentLink?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -146,7 +149,7 @@ enum PaymentMethod {
 // ==========================================
 
 model QRCode {
-  id         String @id @default(uuid()) @map("_id")
+  id         String @id @default(uuid())
   merchantId String
 
   type    QRCodeType
@@ -172,11 +175,55 @@ enum QRCodeType {
 }
 
 // ==========================================
+// PAYMENT LINKS (lien partageable client)
+// ==========================================
+
+model PaymentLink {
+  id         String @id @default(uuid())
+  token      String @unique
+  merchantId String
+
+  amount      Int
+  currency    String  @default("XOF")
+  description String?
+
+  status PaymentLinkStatus @default(ACTIVE)
+
+  /** Transaction associée (QR dynamique / paiement initié) */
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+
+  /** Payload EMVCo PI-SPI pour affichage QR sur la page publique */
+  qrPayload String?
+  qrCodeId  String?
+
+  expiresAt DateTime?
+  paidAt    DateTime?
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([merchantId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("payment_links")
+}
+
+enum PaymentLinkStatus {
+  ACTIVE
+  PAID
+  EXPIRED
+  CANCELLED
+}
+
+// ==========================================
 // PISPI LOGS (Audit Trail)
 // ==========================================
 
 model PISPILog {
-  id String @id @default(uuid()) @map("_id")
+  id String @id @default(uuid())
 
   endpoint        String
   method          String
@@ -198,7 +245,7 @@ model PISPILog {
 // ==========================================
 
 model DailyReconciliation {
-  id String @id @default(uuid()) @map("_id")
+  id String @id @default(uuid())
 
   date       DateTime
   merchantId String?

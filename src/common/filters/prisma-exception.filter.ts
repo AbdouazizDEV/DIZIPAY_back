@@ -42,7 +42,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
       } else if (exception.code === 'P2022') {
         message = isDev
           ? exception.message
-          : 'Schéma Prisma désynchronisé — exécutez `npx prisma db push` (MongoDB).';
+          : 'Schéma Prisma désynchronisé — exécutez `npx prisma migrate deploy` (PostgreSQL / Neon).';
       } else if (isDev) {
         message = exception.message;
       }
@@ -73,7 +73,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         ? {
             detail: exception.message,
             hint:
-              'Vérifiez DATABASE_URL (MongoDB), `npx prisma db push` et le réseau (IP Atlas / Render).',
+              'Vérifiez DATABASE_URL / DIRECT_URL (Neon), `npx prisma migrate deploy` et le réseau.',
           }
         : {}),
     });

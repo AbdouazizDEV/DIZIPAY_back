@@ -1,12 +1,19 @@
 services:
-  mongo:
-    image: mongo:7
-    container_name: dizipay-mongo
-    restart: unless-stopped
-    ports:
-      - '27017:27017'
-    volumes:
-      - dizipay_mongo:/data/db
+  # Base de données : Neon PostgreSQL (cloud) — pas de Postgres local par défaut.
+  # Optionnel pour dev offline : décommenter le service postgres ci-dessous.
+
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: dizipay-postgres
+  #   restart: unless-stopped
+  #   ports:
+  #     - '5432:5432'
+  #   environment:
+  #     POSTGRES_USER: dizipay
+  #     POSTGRES_PASSWORD: dizipay
+  #     POSTGRES_DB: dizipay
+  #   volumes:
+  #     - dizipay_pg:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
@@ -19,5 +26,5 @@ services:
       - dizipay_redis:/data
 
 volumes:
-  dizipay_mongo:
+  # dizipay_pg:
   dizipay_redis:

@@ -13,6 +13,7 @@ import { validationPipe } from '@/common/pipes/validation.pipe';
 import { PrismaModule } from '@/database/prisma.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { PaymentsModule } from '@/modules/payments/payments.module';
+import { PaymentLinksModule } from '@/modules/payment-links/payment-links.module';
 import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
 
 @Module({
@@ -32,6 +33,7 @@ import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
     CacheModule,
     AuthModule,
     PaymentsModule,
+    PaymentLinksModule,
     WebhooksModule,
   ],
   providers: [
