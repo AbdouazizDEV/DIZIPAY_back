@@ -26,15 +26,27 @@ async function bootstrap() {
     .map((o) => o.trim())
     .filter(Boolean);
 
-  // Dev : autoriser Vite par défaut si CORS_ORIGIN non défini.
-  const defaultDevOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
-  const allowedOrigins =
-    corsOrigins.length > 0
-      ? corsOrigins
-      : process.env.NODE_ENV === 'production'
-        ? []
-        : defaultDevOrigins;
+  // Ports Vite locaux (le front tourne souvent sur 5173 ou 5174).
+  const viteLocalOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5174',
+  ];
 
+  // Toujours autoriser le front Vite local en plus de CORS_ORIGIN
+  // (sauf si CORS_ALLOW_LOCALHOST=false).
+  const allowLocalhost =
+    (process.env.CORS_ALLOW_LOCALHOST ?? 'true').toLowerCase() !== 'false';
+
+  const allowedOrigins = [
+    ...new Set([
+      ...corsOrigins,
+      ...(allowLocalhost ? viteLocalOrigins : []),
+    ]),
+  ];
+
+  // Si aucune origine configurée et localhost désactivé → tout autoriser (mobile / outils).
   const corsOriginOption =
     allowedOrigins.length > 0
       ? (
