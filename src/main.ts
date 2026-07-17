@@ -23,30 +23,31 @@ async function bootstrap() {
   app.use(compression());
 
   const corsOrigins = (process.env.CORS_ORIGIN?.split(',') ?? [])
-    .map((o) => o.trim())
+    .map((o) => o.trim().replace(/\/$/, ''))
     .filter(Boolean);
 
-  // Ports Vite locaux (le front tourne souvent sur 5173 ou 5174).
-  const viteLocalOrigins = [
+  // Fronts connus (local Vite + déploiement Vercel).
+  // L’en-tête Origin du navigateur n’a JAMAIS de slash final.
+  const builtinOrigins = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'http://localhost:5174',
     'http://127.0.0.1:5174',
+    'https://dizipay-web.vercel.app',
   ];
 
-  // Toujours autoriser le front Vite local en plus de CORS_ORIGIN
-  // (sauf si CORS_ALLOW_LOCALHOST=false).
-  const allowLocalhost =
-    (process.env.CORS_ALLOW_LOCALHOST ?? 'true').toLowerCase() !== 'false';
+  // Autoriser les origines builtin (sauf si CORS_ALLOW_BUILTIN=false).
+  const allowBuiltin =
+    (process.env.CORS_ALLOW_BUILTIN ?? 'true').toLowerCase() !== 'false';
 
   const allowedOrigins = [
     ...new Set([
       ...corsOrigins,
-      ...(allowLocalhost ? viteLocalOrigins : []),
+      ...(allowBuiltin ? builtinOrigins : []),
     ]),
   ];
 
-  // Si aucune origine configurée et localhost désactivé → tout autoriser (mobile / outils).
+  // Si aucune origine → tout autoriser (app native / outils).
   const corsOriginOption =
     allowedOrigins.length > 0
       ? (
@@ -57,7 +58,8 @@ async function bootstrap() {
             callback(null, true);
             return;
           }
-          callback(null, allowedOrigins.includes(origin));
+          const normalized = origin.replace(/\/$/, '');
+          callback(null, allowedOrigins.includes(normalized));
         }
       : true;
 
@@ -72,6 +74,10 @@ async function bootstrap() {
       'X-Requested-With',
     ],
   });
+
+  Logger.log(
+    `CORS origins: ${allowedOrigins.length ? allowedOrigins.join(', ') : '(any)'}`,
+  );
 
   const port = parseInt(process.env.PORT ?? '3000', 10);
   setupSwagger(app, port);
