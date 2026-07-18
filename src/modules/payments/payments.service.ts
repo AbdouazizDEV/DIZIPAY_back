@@ -92,7 +92,7 @@ export class PaymentsService {
       qrType,
       referenceLabel,
       ...(qrType === 'DYNAMIC' && dto.amount != null
-        ? { amount: dto.amount }
+        ? { amount: this.qrGenerator.centimesToQrAmount(dto.amount) }
         : {}),
     };
 

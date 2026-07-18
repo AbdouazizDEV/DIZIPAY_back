@@ -78,7 +78,7 @@ export class PaymentLinksService {
       countryCode,
       qrType: 'DYNAMIC',
       referenceLabel,
-      amount: dto.amount,
+      amount: this.qrGenerator.centimesToQrAmount(dto.amount),
     };
     const payload = this.qrGenerator.buildPayload(input);
 
@@ -154,7 +154,7 @@ export class PaymentLinksService {
             alias: m.pispiAlias.trim(),
             countryCode: this.qrGenerator.getDefaultCountryCode(),
             qrType: 'DYNAMIC',
-            amount: link.amount,
+            amount: this.qrGenerator.centimesToQrAmount(link.amount),
             referenceLabel: (link.transactionId ?? link.id)
               .replace(/-/g, '')
               .slice(0, 25),

@@ -11,8 +11,9 @@ import {
 
 export class CreatePaymentLinkDto {
   @ApiProperty({
-    description: 'Montant en centimes XOF (ex. 500000 = 5 000 XOF)',
-    example: 500000,
+    description:
+      'Montant en centimes XOF (ex. 150000 = 1 500 F CFA). Affiché /150 sur le front ; le QR EMV reçoit les francs.',
+    example: 150000,
   })
   @IsInt()
   @IsPositive()

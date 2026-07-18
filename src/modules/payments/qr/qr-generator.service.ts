@@ -30,6 +30,29 @@ export class QRGeneratorService {
     }
   }
 
+  /**
+   * Convertit un montant API/DB (centimes) vers le montant attendu par le QR EMV PI-SPI.
+   *
+   * Convention DiziPay : 1 XOF = 100 (centimes) en base / API paiement.
+   * SDK @pi-spi/qrcode / tag EMV 54 : montant en **francs XOF** (ex. 1500 = 1 500 F CFA).
+   *
+   * Sans cette conversion, un lien « 1 500 F » (150000 en base) produit un QR à 150 000 F.
+   */
+  centimesToQrAmount(centimes: number): number {
+    if (!Number.isInteger(centimes) || centimes <= 0) {
+      throw new BadRequestException(
+        'Montant QR invalide : attendu un entier de centimes strictement positif.',
+      );
+    }
+    const francs = Math.round(centimes / 100);
+    if (francs <= 0) {
+      throw new BadRequestException(
+        'Montant trop faible pour un QR PI-SPI (minimum 1 XOF = 100 centimes).',
+      );
+    }
+    return francs;
+  }
+
   /** Payload EMVCo unique, scannable par tout wallet PI-SPI de la zone. */
   buildPayload(input: QrPayloadInput): string {
     return buildPayloadString(input);
